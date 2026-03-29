@@ -1,13 +1,18 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import tw from '@/styles/tailwind';
 import { Text } from '@/components/Text';
 import { typography } from '@/styles/typography';
 import { useTables } from '@/contexts/TablesContext';
+import { useOrder } from '@/contexts/OrderContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FloorPlanView } from '@/components/floor-plan/FloorPlanView';
-import type { Table } from '@/types/hospitality';
+import { NewOrderSheet } from '@/components/table/NewOrderSheet';
+import { TurnoverSheet } from '@/components/table/TurnoverSheet';
+import { TableHubSheet } from '@/components/table/TableHubSheet';
+import { TransferCheckSheet } from '@/components/table/TransferCheckSheet';
+import type { Table, TableStatus } from '@/types/hospitality';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import TableBgPattern from '@/assets/table-bg.svg';
 
@@ -27,12 +32,21 @@ export default function TablesScreen() {
     refreshTables,
     refreshFloorPlans,
     refreshAssignments,
+    updateTableStatus,
   } = useTables();
+  const { createCheck, transferCheck } = useOrder();
   const router = useRouter();
   const loadingRef = useRef(false);
   const didLoadRef = useRef(false);
   const refreshingRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Sheet state
+  const [newOrderTable, setNewOrderTable] = useState<Table | null>(null);
+  const [turnoverTable, setTurnoverTable] = useState<Table | null>(null);
+  const [hubTableId, setHubTableId] = useState<number | null>(null);
+  const [transferTable, setTransferTable] = useState<Table | null>(null);
+  const [transferCheck_, setTransferCheck] = useState<any>(null);
 
   const loadAll = useCallback(
     async (storeId?: number) => {
@@ -80,28 +94,78 @@ export default function TablesScreen() {
   );
 
   const handleTablePress = useCallback(
-    async (table: Table) => {
-      // If table is occupied/reserved and has an active check, go straight to order
+    (table: Table) => {
       const activeCheckId = table.currentCheckId ?? table.activeCheck?.id;
+
       if ((table.status === 'OCCUPIED' || table.status === 'RESERVED') && activeCheckId) {
         router.push(`/order/${activeCheckId}` as any);
         return;
       }
 
-      // If table is available, show a modal or go to a quick open screen
-      // For now, we will just route to the table detail which we will refactor
-      // to automatically prompt for covers.
-      router.push(`/table/${table.id}`);
+      if (table.status === 'AVAILABLE') {
+        setNewOrderTable(table);
+        return;
+      }
+
+      if (table.status === 'DIRTY' || table.status === 'CLEANING') {
+        setTurnoverTable(table);
+        return;
+      }
+
+      setHubTableId(table.id);
     },
-    [router]
+    [router],
   );
 
-  const handleTableLongPress = useCallback(
-    (table: Table) => {
-      // Route to the detail screen for table management (mark dirty, block, etc.)
-      router.push(`/table/${table.id}`);
+  const handleTableLongPress = useCallback((table: Table) => {
+    setHubTableId(table.id);
+  }, []);
+
+  const handleStatusChange = useCallback(
+    async (tableId: number, status: TableStatus) => {
+      await updateTableStatus(tableId, status);
     },
-    [router]
+    [updateTableStatus],
+  );
+
+  const handleCreateOrder = useCallback(
+    async (guestCount: number, guestProfileId?: number) => {
+      if (!newOrderTable || !user) return;
+      const check = await createCheck({
+        storeId: (user as any).storeId,
+        tableId: newOrderTable.id,
+        checkType: 'DINE_IN',
+        guestCount,
+        guestProfileId,
+      });
+      setNewOrderTable(null);
+      router.push(`/order/${check.id}` as any);
+    },
+    [newOrderTable, user, createCheck, router],
+  );
+
+  const handleTransferToTable = useCallback(
+    async (checkId: number, fromTableId: number, toTableId: number) => {
+      await transferCheck(checkId, {
+        transferType: 'TABLE',
+        fromTableId,
+        toTableId,
+      });
+      const storeId = (user as any)?.storeId;
+      refreshTables(storeId).catch(() => undefined);
+    },
+    [transferCheck, user, refreshTables],
+  );
+
+  const handleTransferToServer = useCallback(
+    async (checkId: number, fromServerId: number, toServerId: number) => {
+      await transferCheck(checkId, {
+        transferType: 'SERVER',
+        fromServerId,
+        toServerId,
+      });
+    },
+    [transferCheck],
   );
 
   useRealtimeUpdates({
@@ -168,6 +232,70 @@ export default function TablesScreen() {
         isLoading={isLoading && !refreshing}
         refreshing={refreshing}
         onRefresh={onRefresh}
+      />
+
+      {/* New Order Sheet (available tables) */}
+      <NewOrderSheet
+        visible={!!newOrderTable}
+        table={newOrderTable}
+        onClose={() => setNewOrderTable(null)}
+        onCreateOrder={handleCreateOrder}
+      />
+
+      {/* Quick Turnover Sheet (dirty/cleaning tables) */}
+      <TurnoverSheet
+        visible={!!turnoverTable}
+        table={turnoverTable}
+        onClose={() => setTurnoverTable(null)}
+        onStatusChange={handleStatusChange}
+      />
+
+      {/* Table Hub Sheet (long-press management) */}
+      <TableHubSheet
+        visible={!!hubTableId}
+        tableId={hubTableId}
+        onClose={() => setHubTableId(null)}
+        onViewOrder={(checkId) => router.push(`/order/${checkId}` as any)}
+        onOpenNewOrder={(table) => setNewOrderTable(table)}
+        onTransfer={(table) => {
+          const check = table.activeCheck;
+          if (!check) {
+            Alert.alert('No Active Check', 'This table has no active check to transfer.');
+            return;
+          }
+          setTransferTable(table);
+          setTransferCheck({
+            id: check.id,
+            checkNumber: check.checkNumber,
+            serverId: check.serverId,
+          });
+        }}
+        onChangeServer={(table) => {
+          const check = table.activeCheck;
+          if (!check) {
+            Alert.alert('No Active Check', 'This table has no active check to reassign.');
+            return;
+          }
+          setTransferTable(table);
+          setTransferCheck({
+            id: check.id,
+            checkNumber: check.checkNumber,
+            serverId: check.serverId,
+          });
+        }}
+        onStatusChange={handleStatusChange}
+      />
+
+      {/* Transfer Check Sheet */}
+      <TransferCheckSheet
+        visible={!!transferTable && !!transferCheck_}
+        check={transferCheck_}
+        currentTable={transferTable}
+        availableTables={tables}
+        storeId={(user as any)?.storeId ?? null}
+        onClose={() => { setTransferTable(null); setTransferCheck(null); }}
+        onTransferToTable={handleTransferToTable}
+        onTransferToServer={handleTransferToServer}
       />
     </View>
   );

@@ -11,6 +11,7 @@ const log = createTaggedLogger('NotificationService');
 
 const STORAGE_KEY = 'notifications:state';
 const MAX_NOTIFICATIONS = 100;
+const COALESCE_WINDOW_MS = 60_000;
 
 let idCounter = 0;
 function nextId(): string {
@@ -159,12 +160,66 @@ class NotificationService {
   }
 
   private addNotification(notification: AppNotification): void {
-    this._notifications = [notification, ...this._notifications].slice(
-      0,
-      MAX_NOTIFICATIONS,
-    );
+    const coalesced = this.tryCoalesce(notification);
+    if (!coalesced) {
+      notification.coalesceCount = 1;
+      this._notifications = [notification, ...this._notifications].slice(
+        0,
+        MAX_NOTIFICATIONS,
+      );
+    }
     this.persist();
     this.notify();
+  }
+
+  /**
+   * If a recent notification of the same type and same check exists within
+   * the coalesce window, merge into it instead of creating a new row.
+   * Returns true if coalesced, false if a new entry is needed.
+   */
+  private tryCoalesce(incoming: AppNotification): boolean {
+    const checkId = incoming.data?.checkId;
+    if (!checkId) return false;
+
+    const cutoff = Date.now() - COALESCE_WINDOW_MS;
+    const existing = this._notifications.find(
+      (n) =>
+        n.type === incoming.type &&
+        n.data?.checkId === checkId &&
+        n.createdAt > cutoff,
+    );
+    if (!existing) return false;
+
+    existing.coalesceCount = (existing.coalesceCount ?? 1) + 1;
+    existing.createdAt = Date.now();
+    existing.read = false;
+
+    if (incoming.type === 'ITEM_ADDED' as any) {
+      const names = new Set<string>();
+      if (existing.data?._coalescedNames) {
+        (existing.data._coalescedNames as string[]).forEach((n: string) => names.add(n));
+      } else if (existing.data?.menuItemName) {
+        names.add(existing.data.menuItemName as string);
+      }
+      if (incoming.data?.menuItemName) {
+        names.add(incoming.data.menuItemName as string);
+      }
+      existing.data._coalescedNames = Array.from(names);
+      const count = existing.coalesceCount;
+      const checkNum = existing.data.checkNumber || checkId;
+      existing.body = `${count} items added to check #${checkNum}`;
+    } else {
+      const count = existing.coalesceCount;
+      existing.body = incoming.body + (count > 1 ? ` (+${count - 1} more)` : '');
+    }
+
+    // Move to top of list
+    this._notifications = [
+      existing,
+      ...this._notifications.filter((n) => n.id !== existing.id),
+    ];
+
+    return true;
   }
 
   private pruneExpired(): void {

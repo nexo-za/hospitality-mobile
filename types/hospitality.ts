@@ -275,6 +275,8 @@ export interface Check {
   updatedAt: string;
 }
 
+export type FiringStatus = 'FIRE_HOLD' | 'FIRE' | 'RUSH';
+
 export interface CheckItem {
   id: number;
   checkId: number;
@@ -289,6 +291,7 @@ export interface CheckItem {
   totalPrice: number;
   specialRequests?: string;
   status: CheckItemStatus;
+  firingStatus?: FiringStatus;
   modifiers?: CheckItemModifier[];
   firedAt?: string;
   voidedAt?: string;

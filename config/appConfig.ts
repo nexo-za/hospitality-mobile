@@ -50,7 +50,9 @@ export const appConfig: AppConfig = {
   platform: getPlatform(),
 };
 
-export const getConfig = <T extends keyof AppConfig>(section: T): AppConfig[T] => {
+export const getConfig = <T extends keyof AppConfig>(
+  section: T,
+): AppConfig[T] => {
   return appConfig[section];
 };
 
@@ -75,7 +77,10 @@ export const validateConfig = (): { isValid: boolean; errors: string[] } => {
 export const logConfigStatus = (): void => {
   console.log("[AppConfig] Configuration loaded:", {
     api: { url: appConfig.api.url, cacheDuration: appConfig.api.cacheDuration },
-    environment: { isDevelopment: appConfig.isDevelopment, platform: appConfig.platform },
+    environment: {
+      isDevelopment: appConfig.isDevelopment,
+      platform: appConfig.platform,
+    },
   });
 
   const validation = validateConfig();
