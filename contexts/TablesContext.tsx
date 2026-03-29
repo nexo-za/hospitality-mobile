@@ -148,7 +148,10 @@ export const TablesProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const refreshTables = useCallback(
     async (storeId?: number) => {
-      setIsLoading(true);
+      const isInitialLoad = tablesRef.current.size === 0;
+      if (isInitialLoad) {
+        setIsLoading(true);
+      }
       setError(null);
       try {
         const sid = storeId ?? (userRef.current as any)?.storeId;
@@ -174,9 +177,13 @@ export const TablesProvider: React.FC<{ children: React.ReactNode }> = ({
         allItems.forEach((t) => map.set(t.id, t));
         tablesRef.current = map;
       } catch (e: any) {
-        setError(e.message || 'Failed to load tables');
+        if (isInitialLoad) {
+          setError(e.message || 'Failed to load tables');
+        }
       } finally {
-        setIsLoading(false);
+        if (isInitialLoad) {
+          setIsLoading(false);
+        }
       }
     },
     []

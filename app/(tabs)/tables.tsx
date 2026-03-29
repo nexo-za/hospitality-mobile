@@ -229,7 +229,7 @@ export default function TablesScreen() {
         onTablePress={handleTablePress}
         onTableLongPress={handleTableLongPress}
         currentUserId={(user as any)?.id}
-        isLoading={isLoading && !refreshing}
+        isLoading={isLoading}
         refreshing={refreshing}
         onRefresh={onRefresh}
       />
