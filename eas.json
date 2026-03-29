@@ -1,0 +1,43 @@
+{
+  "cli": {
+    "version": ">= 6.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "node": "22.12.0"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
+      "node": "22.12.0"
+    },
+    "preview2": {
+      "android": {
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "node": "22.12.0"
+    },
+    "preview3": {
+      "developmentClient": true,
+      "node": "22.12.0"
+    },
+    "preview4": {
+      "distribution": "internal",
+      "node": "22.12.0"
+    },
+    "production": {
+      "node": "22.12.0"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
