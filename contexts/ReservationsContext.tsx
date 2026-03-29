@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 import reservationsService from '@/api/services/reservationsService';
 import type {
@@ -57,6 +58,7 @@ export const ReservationsProvider: React.FC<{
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedReservationsRef = useRef(false);
 
   const loadReservations = useCallback(
     async (params?: {
@@ -66,16 +68,24 @@ export const ReservationsProvider: React.FC<{
       dateTo?: string;
       page?: number;
     }) => {
-      setIsLoading(true);
+      const isInitialLoad = !hasLoadedReservationsRef.current;
+      if (isInitialLoad) {
+        setIsLoading(true);
+      }
       setError(null);
       try {
         const res = await reservationsService.list({ ...params, limit: 50 });
         setReservations(res.data);
         setPagination(res.pagination);
+        hasLoadedReservationsRef.current = true;
       } catch (e: any) {
-        setError(e.message);
+        if (isInitialLoad) {
+          setError(e.message);
+        }
       } finally {
-        setIsLoading(false);
+        if (isInitialLoad) {
+          setIsLoading(false);
+        }
       }
     },
     []

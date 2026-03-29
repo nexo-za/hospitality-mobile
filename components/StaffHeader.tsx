@@ -11,11 +11,13 @@ import { useAuth } from "@/contexts/AuthContext";
 interface StaffHeaderProps {
   showStoreInfo?: boolean;
   compact?: boolean;
+  variant?: 'default' | 'onDark';
 }
 
 const StaffHeader: React.FC<StaffHeaderProps> = ({
   showStoreInfo = true,
   compact = false,
+  variant = 'default',
 }) => {
   const { currentStaff } = useStaffSession();
   const { user } = useAuth();
@@ -46,7 +48,7 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
       )}
 
       <View style={tw`max-w-[180px]`}>
-        <StaffSelector storeId={storeId} compact={compact} />
+        <StaffSelector storeId={storeId} compact={compact} variant={variant} />
       </View>
     </View>
   );

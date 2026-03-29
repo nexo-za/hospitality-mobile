@@ -46,6 +46,7 @@ interface ItemActionSheetProps {
   onUpdateSeat: (itemId: number, seatNumber: number) => void;
   onUpdateCourse: (itemId: number, courseNumber: number) => void;
   onMarkServed?: (itemId: number) => void;
+  onEditNote?: (item: CheckItem) => void;
 }
 
 export function ItemActionSheet({
@@ -58,6 +59,7 @@ export function ItemActionSheet({
   onUpdateSeat,
   onUpdateCourse,
   onMarkServed,
+  onEditNote,
 }: ItemActionSheetProps) {
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [voidReasonCode, setVoidReasonCode] = useState('');
@@ -290,6 +292,19 @@ export function ItemActionSheet({
                   label="Repeat Item"
                   color={colors.primary.main}
                   onPress={handleRepeat}
+                />
+              )}
+
+              {/* Special Instructions */}
+              {!isVoided && onEditNote && item.firingStatus === 'FIRE_HOLD' && (
+                <ActionRow
+                  icon="note-edit-outline"
+                  label={item.specialRequests ? 'Edit Special Instructions' : 'Add Special Instructions'}
+                  color="#EA580C"
+                  onPress={() => {
+                    handleClose();
+                    setTimeout(() => onEditNote(item), 300);
+                  }}
                 />
               )}
 

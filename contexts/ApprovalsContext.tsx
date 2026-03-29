@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 import approvalsService from '@/api/services/approvalsService';
 import type {
@@ -33,17 +34,26 @@ export const ApprovalsProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedApprovalsRef = useRef(false);
 
   const loadPendingApprovals = useCallback(async (storeId?: number) => {
-    setIsLoading(true);
+    const isInitialLoad = !hasLoadedApprovalsRef.current;
+    if (isInitialLoad) {
+      setIsLoading(true);
+    }
     setError(null);
     try {
       const data = await approvalsService.listPending(storeId);
       setPendingApprovals(data);
+      hasLoadedApprovalsRef.current = true;
     } catch (e: any) {
-      setError(e.message);
+      if (isInitialLoad) {
+        setError(e.message);
+      }
     } finally {
-      setIsLoading(false);
+      if (isInitialLoad) {
+        setIsLoading(false);
+      }
     }
   }, []);
 

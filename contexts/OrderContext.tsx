@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 import ordersService from '@/api/services/ordersService';
 import type {
@@ -75,6 +76,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedChecksRef = useRef(false);
 
   const loadActiveChecks = useCallback(
     async (params?: {
@@ -85,7 +87,10 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({
       shiftId?: number;
       page?: number;
     }) => {
-      setIsLoading(true);
+      const isInitialLoad = !hasLoadedChecksRef.current;
+      if (isInitialLoad) {
+        setIsLoading(true);
+      }
       setError(null);
       try {
         const res = await ordersService.listChecks({
@@ -95,10 +100,15 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({
         });
         setActiveChecks(extractArray(res));
         setPagination(res.pagination ?? (res as any).data?.pagination ?? null);
+        hasLoadedChecksRef.current = true;
       } catch (e: any) {
-        setError(e.message || 'Failed to load checks');
+        if (isInitialLoad) {
+          setError(e.message || 'Failed to load checks');
+        }
       } finally {
-        setIsLoading(false);
+        if (isInitialLoad) {
+          setIsLoading(false);
+        }
       }
     },
     []

@@ -57,7 +57,8 @@ function formatTime(iso: string) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatCurrency(v: number) {
+function formatCurrency(v: number | undefined | null) {
+  if (v == null || isNaN(v)) return 'R0.00';
   return `R${v.toFixed(2)}`;
 }
 
@@ -321,11 +322,11 @@ export default function CashTillScreen() {
               Shift Cash Summary
             </Text>
             <SummaryRow label="Opening Float" value={formatCurrency(shiftSummary.openingFloat)} />
-            <SummaryRow label="Cash Sales" value={formatCurrency(shiftSummary.totalCashSales)} />
-            <SummaryRow label="Cash Drops" value={formatCurrency(shiftSummary.totalCashDrops)} />
-            <SummaryRow label="Paid In" value={formatCurrency(shiftSummary.totalPaidIn)} />
-            <SummaryRow label="Paid Out" value={formatCurrency(shiftSummary.totalPaidOut)} />
-            <SummaryRow label="Safe Drops" value={formatCurrency(shiftSummary.totalSafeDrops)} />
+            <SummaryRow label="Cash Sales" value={formatCurrency(shiftSummary.cashSales)} />
+            <SummaryRow label="Cash Drops" value={formatCurrency(shiftSummary.cashDrops)} />
+            <SummaryRow label="Paid In" value={formatCurrency(shiftSummary.payIns)} />
+            <SummaryRow label="Paid Out" value={formatCurrency(shiftSummary.payOuts)} />
+            <SummaryRow label="Counted Close" value={formatCurrency(shiftSummary.countedClose)} />
             <View style={tw`border-t border-gray-100 mt-2 pt-2`}>
               <SummaryRow
                 label="Expected Cash"

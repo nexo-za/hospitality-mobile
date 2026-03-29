@@ -2,6 +2,19 @@
 // AUTH TYPES (AUTH_APP - Hospitality)
 // =============================================================================
 
+export type PositionType =
+  | 'SERVER'
+  | 'HOST'
+  | 'BARTENDER'
+  | 'SOUS_CHEF'
+  | 'CHEF'
+  | 'EXPO'
+  | 'RUNNER'
+  | 'CASHIER'
+  | 'FLOOR_MANAGER'
+  | 'GENERAL_MANAGER'
+  | 'OTHER';
+
 export interface HospitalityUser {
   id: number;
   email: string;
@@ -10,6 +23,7 @@ export interface HospitalityUser {
   username: string;
   role: string;
   position: string;
+  positionType?: PositionType;
   contactNumber: string;
   employeeId: string;
   organizationId: number;

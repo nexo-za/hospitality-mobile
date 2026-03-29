@@ -142,36 +142,96 @@ export interface CombineTablesRequest {
 // MENU TYPES (MENU_APP)
 // =============================================================================
 
+export type MenuType =
+  | 'REGULAR'
+  | 'BREAKFAST'
+  | 'LUNCH'
+  | 'DINNER'
+  | 'HAPPY_HOUR'
+  | 'BRUNCH'
+  | 'LATE_NIGHT'
+  | 'SEASONAL'
+  | 'CATERING'
+  | 'KIDS';
+
+export type ModifierSelectionType = 'SINGLE' | 'MULTIPLE';
+
+export interface MenuSchedule {
+  id: number;
+  menuId: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MenuCategory {
+  id: number;
+  menuId: number;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  sortOrder: number;
+  isActive: boolean;
+  parentId?: number;
+  items?: MenuItem[];
+  _count?: { items: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Menu {
   id: number;
   storeId: number;
   name: string;
-  menuType: string;
-  isActive: boolean;
   description?: string;
-  startTime?: string;
-  endTime?: string;
+  menuType: MenuType;
+  isActive: boolean;
+  isDefault: boolean;
+  sortOrder: number;
+  categories?: MenuCategory[];
+  schedules?: MenuSchedule[];
+  store?: { id: number; name: string };
+  _count?: { categories: number };
   createdAt: string;
   updatedAt: string;
 }
 
 export interface MenuItem {
   id: number;
-  menuId: number;
   categoryId: number;
-  categoryName?: string;
   name: string;
+  displayName?: string;
   description?: string;
   price: number;
+  costPrice?: number;
   imageUrl?: string;
+  sku?: string;
+  defaultCourseType?: CourseType;
+  prepTimeMinutes?: number;
+  calories?: number;
+  isActive: boolean;
   isAvailable: boolean;
-  preparationTime?: number;
-  allergens?: string[];
-  tags?: string[];
-  modifierGroups?: ModifierGroup[];
+  sortOrder: number;
+  tags: string[];
+  allergens: string[];
+  dietaryFlags: string[];
+  category?: { id: number; name: string; menuId?: number };
+  modifierGroups?: MenuItemModifierGroupJunction[];
   variants?: MenuItemVariant[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MenuItemModifierGroupJunction {
+  id: number;
+  menuItemId: number;
+  modifierGroupId: number;
+  sortOrder: number;
+  overrideRequired?: boolean;
+  modifierGroup: ModifierGroup;
 }
 
 export interface MenuItemVariant {
@@ -179,29 +239,53 @@ export interface MenuItemVariant {
   menuItemId: number;
   name: string;
   price: number;
-  isAvailable: boolean;
+  sku?: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ModifierGroup {
   id: number;
   name: string;
+  displayName?: string;
+  selectionType: ModifierSelectionType;
   minSelections: number;
-  maxSelections: number;
+  maxSelections: number | null;
   isRequired: boolean;
+  isActive: boolean;
+  sortOrder: number;
   modifiers: Modifier[];
+  _count?: { menuItems: number };
 }
 
 export interface Modifier {
   id: number;
   groupId: number;
   name: string;
-  price: number;
-  isAvailable: boolean;
+  priceAdjustment: number;
   isDefault: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  productId?: number;
+  menuItemId?: number;
 }
 
-export interface ToggleItemAvailabilityRequest {
-  isAvailable: boolean;
+// Helper to get the category name from a MenuItem regardless of API shape
+export function getItemCategoryName(item: MenuItem): string | undefined {
+  return item.category?.name;
+}
+
+// Helper to get the effective modifier groups from an item
+export function getItemModifierGroups(item: MenuItem): ModifierGroup[] {
+  if (!item.modifierGroups) return [];
+  return item.modifierGroups.map((j) => j.modifierGroup);
+}
+
+// Helper to check if an item has required modifier groups
+export function hasRequiredModifiers(item: MenuItem): boolean {
+  return getItemModifierGroups(item).some((mg) => mg.isRequired);
 }
 
 // =============================================================================
@@ -860,11 +944,11 @@ export interface RecordCashEventRequest {
 export interface ShiftCashSummary {
   shiftId: number;
   openingFloat: number;
-  totalCashSales: number;
-  totalCashDrops: number;
-  totalPaidIn: number;
-  totalPaidOut: number;
-  totalSafeDrops: number;
+  cashSales: number;
+  cashDrops: number;
+  payIns: number;
+  payOuts: number;
+  countedClose: number;
   expectedCash: number;
   actualCash?: number;
   variance?: number;
@@ -1042,27 +1126,228 @@ export interface WaiterPerformance {
 }
 
 export interface DashboardSummary {
-  storeId: number;
-  dateFrom: string;
-  dateTo: string;
   totalRevenue: number;
-  totalChecks: number;
-  averageCheck: number;
-  coverCount: number;
-  topSellingItems?: Array<{ name: string; quantity: number }>;
-  revenueByHour?: Array<{ hour: number; revenue: number }>;
+  subtotal: number;
+  totalTax: number;
+  totalTips: number;
+  totalDiscounts: number;
+  totalServiceCharges: number;
+  closedChecks: number;
+  openChecks: number;
+  voidedChecks: number;
+  avgCheckAmount: number;
+  totalCovers: number;
+  revenuePerCover: number;
+  paymentBreakdown: {
+    cash: number;
+    card: number;
+    digital: number;
+    other: number;
+  };
+  revenueGrowthPercent: number;
+  previousPeriodRevenue: number;
+  previousPeriodChecks: number;
+  period: { from: string; to: string };
+}
+
+export interface LiveOperationsTable {
+  total: number;
+  occupied: number;
+  available: number;
+  reserved: number;
+  dirty: number;
+  cleaning: number;
+  blocked: number;
+  utilizationPercent: number;
+}
+
+export interface LiveOperationsCheck {
+  id: number;
+  checkNumber: string;
+  openedAt: string;
+  guestCount: number;
+  grandTotal: number;
+  checkType: string;
+  server: { id: number; name: string } | null;
+  table: { number: string; label: string } | null;
+  durationMinutes: number;
+}
+
+export interface LiveOperationsKitchen {
+  pendingTickets: number;
+  byStatus: Record<string, number>;
+  avgCompletionMinutes: number | null;
+  completedLast2Hours: number;
 }
 
 export interface LiveOperations {
-  storeId: number;
-  openTables: number;
-  totalTables: number;
-  activeChecks: number;
-  activeServers: number;
-  averageTableTime: number;
-  waitlistCount: number;
-  reservationsPending: number;
-  currentRevenue: number;
+  tables: LiveOperationsTable;
+  openChecks: {
+    count: number;
+    checks: LiveOperationsCheck[];
+  };
+  reservations: {
+    total: number;
+    expectedCovers: number;
+    byStatus: Record<string, { count: number; covers: number }>;
+  };
+  waitlist: {
+    count: number;
+    totalWaiting: number;
+    entries: Array<{
+      id: number;
+      guestName: string;
+      partySize: number;
+      estimatedWait: number | null;
+      quotedWaitTime: number | null;
+      checkedInAt: string;
+      status: string;
+    }>;
+  };
+  kitchen: LiveOperationsKitchen;
+}
+
+export interface RevenueTrendBucket {
+  period: string;
+  revenue: number;
+  tips: number;
+  checks: number;
+  covers: number;
+}
+
+export interface RevenueTrends {
+  byTime: RevenueTrendBucket[];
+  byRevenueCenter: Array<{
+    id: number;
+    name: string;
+    code: string;
+    revenue: number;
+    checks: number;
+  }>;
+  byMenuCategory: Array<{
+    name: string;
+    revenue: number;
+    quantity: number;
+    items: number;
+  }>;
+  period: { from: string; to: string };
+  interval: string;
+}
+
+export interface TopItem {
+  menuItemId: number;
+  name: string;
+  category: string;
+  basePrice: number;
+  totalQuantity: number;
+  totalRevenue: number;
+  orderCount: number;
+  revenuePercent: number;
+}
+
+export interface RecentCheck {
+  id: number;
+  checkNumber: string;
+  checkType: string;
+  guestCount: number;
+  grandTotal: number;
+  tipTotal: number;
+  durationMinutes: number | null;
+  openedAt: string;
+  closedAt: string;
+  server: { id: number; name: string } | null;
+  table: { number: string; label: string } | null;
+  store: { id: number; name: string };
+  paymentMethods: string[];
+}
+
+export interface DashboardAnalytics {
+  storePerformance: Array<{
+    storeId: number;
+    storeName: string;
+    totalRevenue: number;
+    totalTips: number;
+    totalCovers: number;
+    avgCheckAmount: number;
+    totalChecks: number;
+    revenuePercent: number;
+    rank: number;
+  }>;
+  tableTurns: {
+    avgTurnTimeMinutes: number;
+    totalTurns: number;
+    bySection: Array<{
+      sectionId: number;
+      sectionName: string;
+      avgTurnTimeMinutes: number;
+      turns: number;
+    }>;
+  };
+  checkTypeBreakdown: Array<{
+    type: string;
+    revenue: number;
+    count: number;
+  }>;
+  period: { from: string; to: string };
+}
+
+export interface StaffPerformanceEntry {
+  serverId: number;
+  serverName: string;
+  username: string | null;
+  totalChecks: number;
+  totalRevenue: number;
+  totalTips: number;
+  totalCovers: number;
+  avgCheckAmount: number;
+  revenuePerCover: number;
+  tipPercent: number;
+}
+
+export interface InventoryAlerts {
+  lowStock: {
+    count: number;
+    items: Array<{
+      id: number;
+      storeId: number;
+      storeName: string;
+      productId: number;
+      productName: string;
+      sku: string;
+      onhandQty: number;
+      availableQty: number;
+      reorderPoint: number;
+    }>;
+  };
+  expiringLots: {
+    count: number;
+    expired: number;
+    expiringSoon: number;
+    items: Array<{
+      id: number;
+      lotNumber: string;
+      remainingQty: number;
+      expiresAt: string;
+      isExpired: boolean;
+      isExpiringSoon: boolean;
+      product: { id: number; name: string; sku: string };
+      store: { id: number; name: string };
+    }>;
+  };
+  belowPar: {
+    count: number;
+    items: Array<{
+      id: number;
+      storeId: number;
+      storeName: string;
+      productId: number;
+      productName: string;
+      sku: string;
+      onhandQty: number;
+      parLevel: number;
+      deficit: number;
+    }>;
+  };
 }
 
 // =============================================================================

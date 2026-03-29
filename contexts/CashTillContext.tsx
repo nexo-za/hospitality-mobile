@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 import cashTillService from '@/api/services/cashTillService';
 import type {
@@ -52,6 +53,7 @@ export const CashTillProvider: React.FC<{ children: React.ReactNode }> = ({
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedEventsRef = useRef(false);
 
   const loadDrawers = useCallback(async (storeId?: number) => {
     try {
@@ -70,7 +72,10 @@ export const CashTillProvider: React.FC<{ children: React.ReactNode }> = ({
       eventType?: string;
       page?: number;
     }) => {
-      setIsLoading(true);
+      const isInitialLoad = !hasLoadedEventsRef.current;
+      if (isInitialLoad) {
+        setIsLoading(true);
+      }
       setError(null);
       try {
         const res = await cashTillService.listEvents({
@@ -79,10 +84,15 @@ export const CashTillProvider: React.FC<{ children: React.ReactNode }> = ({
         });
         setEvents(res.data);
         setPagination(res.pagination);
+        hasLoadedEventsRef.current = true;
       } catch (e: any) {
-        setError(e.message);
+        if (isInitialLoad) {
+          setError(e.message);
+        }
       } finally {
-        setIsLoading(false);
+        if (isInitialLoad) {
+          setIsLoading(false);
+        }
       }
     },
     []

@@ -39,7 +39,7 @@ const PRIORITY_BG: Record<NotificationPriority, string> = {
 
 // ─── Bell icon with badge ────────────────────────────────────────────────────
 
-export function NotificationBell() {
+export function NotificationBell({ color = '#374151' }: { color?: string }) {
   const { unreadCount } = useNotifications();
   const [visible, setVisible] = useState(false);
 
@@ -50,7 +50,7 @@ export function NotificationBell() {
         hitSlop={8}
         style={tw`relative p-1`}
       >
-        <MaterialCommunityIcons name="bell-outline" size={24} color="#374151" />
+        <MaterialCommunityIcons name="bell-outline" size={22} color={color} />
         {unreadCount > 0 && (
           <View
             style={[

@@ -36,6 +36,7 @@ interface CartPanelProps {
   onRepeatItem: (item: CheckItem) => void;
   onMoreActions: (item: CheckItem) => void;
   onRemoveItem: (itemId: number) => void;
+  onEditNote: (item: CheckItem) => void;
   onFire: () => void;
   onPayment: () => void;
 }
@@ -61,6 +62,7 @@ export function CartPanel({
   onRepeatItem,
   onMoreActions,
   onRemoveItem,
+  onEditNote,
   onFire,
   onPayment,
 }: CartPanelProps) {
@@ -99,9 +101,9 @@ export function CartPanel({
   const renderSwipeHint = useCallback(() => {
     if (activeItems.length === 0 || !isOpen) return null;
     return (
-      <View style={tw`flex-row items-center justify-center py-1.5 bg-gray-50`}>
-        <MaterialCommunityIcons name="gesture-swipe-horizontal" size={14} color="#9CA3AF" />
-        <Text style={tw`text-gray-400 text-[10px] ml-1`}>Swipe items for quick actions</Text>
+      <View style={tw`flex-row items-center justify-center py-2 bg-gray-50`}>
+        <MaterialCommunityIcons name="gesture-swipe-horizontal" size={16} color="#9CA3AF" />
+        <Text style={[tw`text-gray-400 ml-1.5`, typography.small]}>Swipe items for quick actions</Text>
       </View>
     );
   }, [activeItems.length, isOpen]);
@@ -117,20 +119,21 @@ export function CartPanel({
         onRepeatPress={onRepeatItem}
         onMorePress={onMoreActions}
         onRemove={onRemoveItem}
+        onEditNote={onEditNote}
       />
     ),
-    [isOpen, onQuantityChange, onVoidItem, onRepeatItem, onMoreActions, onRemoveItem],
+    [isOpen, onQuantityChange, onVoidItem, onRepeatItem, onMoreActions, onRemoveItem, onEditNote],
   );
 
   const renderCourseGroup = useCallback(
     (courseNumber: number, items: CheckItem[]) => (
       <View key={`course-${courseNumber}`}>
-        <View style={tw`flex-row items-center px-3 py-1.5 bg-gray-50`}>
-          <MaterialCommunityIcons name="silverware-fork-knife" size={12} color="#9CA3AF" />
-          <Text variant="medium" style={tw`text-gray-500 text-[11px] ml-1.5 uppercase tracking-wider`}>
+        <View style={tw`flex-row items-center px-4 py-2 bg-gray-50`}>
+          <MaterialCommunityIcons name="silverware-fork-knife" size={14} color="#9CA3AF" />
+          <Text variant="medium" style={[tw`text-gray-500 ml-1.5 uppercase tracking-wider`, typography.small]}>
             {courseNumber === 0 ? 'No Course' : COURSE_LABELS[courseNumber] || `Course ${courseNumber}`}
           </Text>
-          <Text style={tw`text-gray-400 text-[11px] ml-1`}>({items.length})</Text>
+          <Text style={[tw`text-gray-400 ml-1`, typography.small]}>({items.length})</Text>
         </View>
         {items.map(renderItem)}
       </View>
@@ -142,66 +145,66 @@ export function CartPanel({
     <View style={tw`flex-1`}>
       {/* Compact Header */}
       <TouchableOpacity
-        style={tw`px-3 py-2.5 bg-white border-b border-gray-100`}
+        style={tw`px-4 py-3 bg-white border-b border-gray-100`}
         onPress={() => setHeaderExpanded(!headerExpanded)}
         activeOpacity={0.7}
       >
         <View style={tw`flex-row items-center`}>
-          <View style={tw`h-7 w-7 rounded-full ${guest ? 'bg-blue-100' : 'bg-gray-100'} items-center justify-center mr-2`}>
+          <View style={tw`h-8 w-8 rounded-full ${guest ? 'bg-blue-100' : 'bg-gray-100'} items-center justify-center mr-2.5`}>
             {guest ? (
-              <Text style={tw`text-blue-700 text-xs font-bold`}>{(guest.firstName || '?')[0].toUpperCase()}</Text>
+              <Text style={[tw`text-blue-700`, { fontSize: 14, fontFamily: 'Geist-Bold' }]}>{(guest.firstName || '?')[0].toUpperCase()}</Text>
             ) : (
-              <MaterialCommunityIcons name="silverware-variant" size={14} color={colors.primary.main} />
+              <MaterialCommunityIcons name="silverware-variant" size={16} color={colors.primary.main} />
             )}
           </View>
           <View style={tw`flex-1`}>
             <View style={tw`flex-row items-center`}>
-              <Text variant="semibold" style={[tw`text-gray-900`, typography.caption]}>
+              <Text variant="semibold" style={[tw`text-gray-900`, typography.bodySemibold]}>
                 {check.tableName || `Table ${check.tableId || 'N/A'}`}
               </Text>
               {guest?.isVIP && (
-                <View style={tw`bg-amber-100 rounded px-1 py-0.5 ml-1.5`}>
-                  <Text style={tw`text-amber-700 text-[8px] font-bold`}>VIP</Text>
+                <View style={tw`bg-amber-100 rounded px-1.5 py-0.5 ml-2`}>
+                  <Text style={[tw`text-amber-700`, { fontSize: 10, fontFamily: 'Geist-Bold' }]}>VIP</Text>
                 </View>
               )}
-              <Text style={tw`text-gray-400 text-xs ml-1.5`}>
+              <Text style={[tw`text-gray-400 ml-2`, typography.caption]}>
                 · {check.guestCount}p{check.serverName ? ` · ${check.serverName}` : ''}
               </Text>
             </View>
             {guest && (
-              <Text style={tw`text-gray-500 text-[11px]`}>
+              <Text style={[tw`text-gray-500`, typography.small]}>
                 {guest.firstName} {guest.lastName || ''}
               </Text>
             )}
           </View>
           <TouchableOpacity
             onPress={onEditCheck}
-            style={tw`p-1.5 rounded-full bg-gray-50`}
+            style={tw`p-2 rounded-full bg-gray-50`}
             hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
           >
-            <MaterialCommunityIcons name="pencil-outline" size={14} color="#6B7280" />
+            <MaterialCommunityIcons name="pencil-outline" size={16} color="#6B7280" />
           </TouchableOpacity>
           <MaterialCommunityIcons
             name={headerExpanded ? 'chevron-up' : 'chevron-down'}
-            size={16}
+            size={18}
             color="#9CA3AF"
             style={tw`ml-1`}
           />
         </View>
         {headerExpanded && (
-          <View style={tw`mt-2 pt-2 border-t border-gray-100`}>
+          <View style={tw`mt-2.5 pt-2.5 border-t border-gray-100`}>
             <View style={tw`flex-row`}>
               <View style={tw`flex-1`}>
-                <Text style={tw`text-gray-400 text-[10px] uppercase`}>Check #</Text>
-                <Text variant="medium" style={tw`text-gray-700 text-xs`}>{check.checkNumber}</Text>
+                <Text style={[tw`text-gray-400 uppercase`, typography.small]}>Check #</Text>
+                <Text variant="medium" style={[tw`text-gray-700`, typography.captionMedium]}>{check.checkNumber}</Text>
               </View>
               <View style={tw`flex-1`}>
-                <Text style={tw`text-gray-400 text-[10px] uppercase`}>Type</Text>
-                <Text variant="medium" style={tw`text-gray-700 text-xs`}>{check.checkType?.replace('_', ' ')}</Text>
+                <Text style={[tw`text-gray-400 uppercase`, typography.small]}>Type</Text>
+                <Text variant="medium" style={[tw`text-gray-700`, typography.captionMedium]}>{check.checkType?.replace('_', ' ')}</Text>
               </View>
               <View style={tw`flex-1`}>
-                <Text style={tw`text-gray-400 text-[10px] uppercase`}>Items</Text>
-                <Text variant="medium" style={tw`text-gray-700 text-xs`}>{activeItems.length}</Text>
+                <Text style={[tw`text-gray-400 uppercase`, typography.small]}>Items</Text>
+                <Text variant="medium" style={[tw`text-gray-700`, typography.captionMedium]}>{activeItems.length}</Text>
               </View>
             </View>
           </View>
@@ -215,8 +218,8 @@ export function CartPanel({
         <ScrollView style={tw`flex-1`} contentContainerStyle={activeItems.length === 0 ? tw`flex-1` : undefined}>
           {activeItems.length === 0 ? (
             <View style={tw`flex-1 justify-center items-center p-6`}>
-              <MaterialCommunityIcons name="cart-outline" size={40} color="#D1D5DB" />
-              <Text style={tw`text-gray-400 mt-3 text-center text-sm`}>
+              <MaterialCommunityIcons name="cart-outline" size={48} color="#D1D5DB" />
+              <Text style={[tw`text-gray-400 mt-3 text-center`, typography.body]}>
                 Tap menu items to add
               </Text>
             </View>
@@ -247,31 +250,31 @@ export function CartPanel({
           ) : (
             <MaterialCommunityIcons name="fire" size={18} color="white" />
           )}
-          <Text variant="semibold" style={tw`text-white text-xs ml-1.5`}>
+          <Text variant="semibold" style={[tw`text-white ml-1.5`, typography.captionSemibold]}>
             {isFiring ? 'Sending...' : `Fire (${unfiredCount})`}
           </Text>
         </TouchableOpacity>
       )}
 
       {/* Totals & Payment Footer */}
-      <View style={tw`bg-white border-t border-gray-100 px-3 pt-2 pb-3`}>
-        <View style={tw`flex-row justify-between mb-1`}>
-          <Text style={tw`text-gray-500 text-xs`}>Subtotal</Text>
-          <Text style={tw`text-gray-700 text-xs`}>R{check.subtotal?.toFixed(2) || '0.00'}</Text>
+      <View style={tw`bg-white border-t border-gray-100 px-4 pt-3 pb-4`}>
+        <View style={tw`flex-row justify-between mb-1.5`}>
+          <Text style={[tw`text-gray-500`, typography.caption]}>Subtotal</Text>
+          <Text style={[tw`text-gray-700`, typography.caption]}>R{check.subtotal?.toFixed(2) || '0.00'}</Text>
         </View>
         {(check.discountAmount ?? 0) > 0 && (
-          <View style={tw`flex-row justify-between mb-1`}>
-            <Text style={tw`text-gray-500 text-xs`}>Discount</Text>
-            <Text style={tw`text-red-500 text-xs`}>-R{check.discountAmount?.toFixed(2)}</Text>
+          <View style={tw`flex-row justify-between mb-1.5`}>
+            <Text style={[tw`text-gray-500`, typography.caption]}>Discount</Text>
+            <Text style={[tw`text-red-500`, typography.caption]}>-R{check.discountAmount?.toFixed(2)}</Text>
           </View>
         )}
-        <View style={tw`flex-row justify-between mb-1`}>
-          <Text style={tw`text-gray-500 text-xs`}>Tax (15%)</Text>
-          <Text style={tw`text-gray-700 text-xs`}>R{check.taxAmount?.toFixed(2) || '0.00'}</Text>
+        <View style={tw`flex-row justify-between mb-1.5`}>
+          <Text style={[tw`text-gray-500`, typography.caption]}>Tax (15%)</Text>
+          <Text style={[tw`text-gray-700`, typography.caption]}>R{check.taxAmount?.toFixed(2) || '0.00'}</Text>
         </View>
-        <View style={tw`flex-row justify-between mb-3 pt-1.5 border-t border-gray-100`}>
-          <Text variant="bold" style={tw`text-gray-900 text-base`}>Total</Text>
-          <Text variant="bold" style={tw`text-gray-900 text-base`}>
+        <View style={tw`flex-row justify-between mb-4 pt-2 border-t border-gray-100`}>
+          <Text variant="bold" style={[tw`text-gray-900`, typography.h3]}>Total</Text>
+          <Text variant="bold" style={[tw`text-gray-900`, typography.h3]}>
             R{check.totalAmount?.toFixed(2) || '0.00'}
           </Text>
         </View>
@@ -279,7 +282,7 @@ export function CartPanel({
         {isOpen && (
           <TouchableOpacity
             style={[
-              tw`py-3 rounded-xl items-center`,
+              tw`py-3.5 rounded-xl items-center`,
               { backgroundColor: colors.primary.main },
               activeItems.length === 0 && tw`opacity-40`,
             ]}
@@ -287,17 +290,17 @@ export function CartPanel({
             disabled={activeItems.length === 0}
             activeOpacity={0.8}
           >
-            <Text variant="semibold" style={tw`text-white text-sm`}>Process Payment</Text>
+            <Text variant="semibold" style={[tw`text-white`, typography.bodySemibold]}>Process Payment</Text>
           </TouchableOpacity>
         )}
 
         {check.status === 'CLOSED' && (check.balanceDue ?? 0) > 0 && (
           <TouchableOpacity
-            style={[tw`py-3 rounded-xl items-center`, { backgroundColor: colors.primary.main }]}
+            style={[tw`py-3.5 rounded-xl items-center`, { backgroundColor: colors.primary.main }]}
             onPress={onPayment}
             activeOpacity={0.8}
           >
-            <Text variant="semibold" style={tw`text-white text-sm`}>
+            <Text variant="semibold" style={[tw`text-white`, typography.bodySemibold]}>
               Pay Balance (R{check.balanceDue?.toFixed(2)})
             </Text>
           </TouchableOpacity>

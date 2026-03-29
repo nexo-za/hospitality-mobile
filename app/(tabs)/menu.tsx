@@ -1,376 +1,436 @@
-import React, { useEffect, useCallback, useState, useMemo } from 'react';
+import React, { useEffect, useCallback, useState, useMemo, useRef } from 'react';
 import {
   View,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   RefreshControl,
   TextInput,
   ActivityIndicator,
-  ScrollView,
+  Image,
+  useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import tw from '@/styles/tailwind';
 import { Text } from '@/components/Text';
 import { typography } from '@/styles/typography';
+import { colors } from '@/styles/theme/tokens';
 import { useMenu } from '@/contexts/MenuContext';
-import { useOrder } from '@/contexts/OrderContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMenuSearch, getHighlightSegments } from '@/hooks/useMenuSearch';
 import type { MenuItem } from '@/types/hospitality';
+import { getItemCategoryName } from '@/types/hospitality';
 
-const ALLERGEN_COLORS: Record<string, string> = {
-  gluten: '#DC2626',
-  dairy: '#2563EB',
-  nuts: '#92400E',
-  shellfish: '#DB2777',
-  soy: '#65A30D',
-  eggs: '#EA580C',
-  fish: '#0891B2',
-  sesame: '#7C3AED',
+const CATEGORY_COLORS: Record<string, string> = {
+  Starters: '#F59E0B',
+  Mains: '#EF4444',
+  Desserts: '#EC4899',
+  Drinks: '#3B82F6',
+  Wine: '#8B5CF6',
+  Beverages: '#06B6D4',
+  Sides: '#10B981',
 };
 
-function getAllergenColor(allergen: string): string {
-  const key = allergen.toLowerCase();
-  for (const [k, color] of Object.entries(ALLERGEN_COLORS)) {
-    if (key.includes(k)) return color;
-  }
-  return '#DC2626';
+function getCategoryColor(name?: string): string {
+  if (!name) return colors.primary.main;
+  return CATEGORY_COLORS[name] || colors.primary.main;
 }
 
-function hasRequiredModifiers(item: MenuItem): boolean {
-  return (
-    !!item.modifierGroups?.length &&
-    item.modifierGroups.some((mg) => mg.isRequired)
-  );
-}
-
-function MenuItemCard({
-  item,
-  onQuickAdd,
-  highlights,
-}: {
-  item: MenuItem;
-  onQuickAdd?: () => void;
-  highlights?: ReturnType<typeof getHighlightSegments> extends infer R ? { name?: R; category?: R } : never;
-}) {
-  const router = useRouter();
-  const requiresModifiers = hasRequiredModifiers(item);
-
-  return (
-    <TouchableOpacity
-      style={[
-        tw`bg-white rounded-xl p-4 mb-3 mx-4 border border-gray-100 flex-row items-center`,
-        !item.isAvailable && { opacity: 0.5 },
-      ]}
-      onPress={() => router.push(`/menu-item/${item.id}`)}
-      activeOpacity={0.7}
-    >
-      <View
-        style={tw`w-12 h-12 rounded-full bg-gray-100 items-center justify-center mr-3`}
-      >
-        {item.imageUrl ? (
-          <MaterialCommunityIcons name="image" size={20} color="#9CA3AF" />
-        ) : (
-          <MaterialCommunityIcons
-            name="food-variant"
-            size={20}
-            color="#9CA3AF"
-          />
-        )}
-      </View>
-
-      <View style={tw`flex-1`}>
-        <View style={tw`flex-row items-center`}>
-          <Text style={[tw`text-base flex-1`, typography.bodySemibold]}>
-            {highlights?.name
-              ? highlights.name.map((seg, i) =>
-                  seg.highlighted
-                    ? <Text key={i} style={tw`text-blue-600 bg-blue-50`}>{seg.text}</Text>
-                    : <Text key={i}>{seg.text}</Text>
-                )
-              : item.name}
-          </Text>
-          {!item.isAvailable && (
-            <View style={tw`bg-red-500 rounded-full px-2 py-0.5 ml-2`}>
-              <Text
-                style={[tw`text-xs text-white`, typography.captionSemibold]}
-              >
-                86'd
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {item.description ? (
-          <Text
-            style={[tw`text-sm text-gray-500 mt-0.5`, typography.body]}
-            numberOfLines={2}
-          >
-            {item.description}
-          </Text>
-        ) : null}
-
-        {/* Allergen dots */}
-        {item.allergens && item.allergens.length > 0 && (
-          <View style={tw`flex-row items-center mt-1.5 gap-1`}>
-            {item.allergens.map((a) => (
-              <View
-                key={a}
-                style={[
-                  tw`w-2.5 h-2.5 rounded-full mr-1`,
-                  { backgroundColor: getAllergenColor(a) },
-                ]}
-              />
-            ))}
-            <Text style={[tw`text-xs text-gray-400 ml-0.5`, typography.caption]}>
-              {item.allergens.join(', ')}
-            </Text>
-          </View>
-        )}
-
-        {/* Tags */}
-        {item.tags && item.tags.length > 0 && (
-          <View style={tw`flex-row flex-wrap mt-1.5 gap-1`}>
-            {item.tags.map((tag) => (
-              <View key={tag} style={tw`bg-blue-50 rounded-full px-2 py-0.5`}>
-                <Text
-                  style={[tw`text-xs text-blue-600`, typography.caption]}
-                >
-                  {tag}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={tw`flex-row items-center justify-between mt-2`}>
-          <Text
-            style={[tw`text-base text-blue-600`, typography.headingSemibold]}
-          >
-            R{item.price?.toFixed(2)}
-          </Text>
-          {item.categoryName && (
-            <View style={tw`bg-gray-100 rounded-full px-2 py-0.5`}>
-              <Text style={[tw`text-xs text-gray-600`, typography.caption]}>
-                {highlights?.category
-                  ? highlights.category.map((seg, i) =>
-                      seg.highlighted
-                        ? <Text key={i} style={tw`text-blue-600 bg-blue-50`}>{seg.text}</Text>
-                        : <Text key={i}>{seg.text}</Text>
-                    )
-                  : item.categoryName}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Quick-add or chevron */}
-      {item.isAvailable && !requiresModifiers && onQuickAdd ? (
-        <TouchableOpacity
-          style={tw`w-9 h-9 rounded-full bg-blue-500 items-center justify-center ml-3`}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            onQuickAdd();
-          }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-      ) : (
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color="#D1D5DB"
-          style={tw`ml-2`}
-        />
-      )}
-    </TouchableOpacity>
-  );
-}
-
-function CategoryTabs({
-  categories,
-  selected,
-  onSelect,
-}: {
-  categories: string[];
-  selected: string;
-  onSelect: (cat: string) => void;
-}) {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={tw`px-4 py-2`}
-    >
-      {categories.map((cat) => {
-        const active = cat === selected;
-        return (
-          <TouchableOpacity
-            key={cat}
-            style={[
-              tw`rounded-full px-4 py-2 mr-2 border`,
-              active
-                ? tw`bg-blue-500 border-blue-500`
-                : tw`bg-white border-gray-200`,
-            ]}
-            onPress={() => onSelect(cat)}
-          >
-            <Text
-              style={[
-                tw`text-sm`,
-                active ? tw`text-white` : tw`text-gray-600`,
-                typography.bodySemibold,
-              ]}
-            >
-              {cat}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
-  );
-}
+type ViewMode = 'grid' | 'list';
 
 export default function MenuScreen() {
   const { user } = useAuth();
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const productColumns = width >= 1024 ? 'w-1/4' : width >= 768 ? 'w-1/3' : 'w-1/2';
+  const searchInputRef = useRef<TextInput>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+
   const {
+    menus,
+    selectedMenu,
     menuItems,
     isLoading,
     error,
-    loadMenuItems,
+    selectMenu,
     refreshMenus,
+    toggleAvailability,
   } = useMenu();
-  const { currentCheck, addItem } = useOrder();
-  const [selectedCategory, setSelectedCategory] = useState('All');
+
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   const {
     query: localSearch,
     setQuery: setLocalSearch,
+    debouncedQuery,
     filteredItems,
     highlightMap,
   } = useMenuSearch(menuItems, selectedCategory);
 
-  useEffect(() => {
-    if (user) {
-      refreshMenus((user as any).storeId);
-      loadMenuItems({ availableOnly: false });
-    }
-  }, [user]);
-
   const categories = useMemo(() => {
     const cats = new Set<string>();
     menuItems.forEach((item) => {
-      if (item.categoryName) cats.add(item.categoryName);
+      const catName = getItemCategoryName(item);
+      if (catName) cats.add(catName);
     });
-    return ['All', ...Array.from(cats).sort()];
+    return [
+      { id: 'all', name: 'All', icon: 'grid' as const },
+      ...Array.from(cats)
+        .sort()
+        .map((c) => ({ id: c, name: c, icon: 'silverware-fork-knife' as const })),
+    ];
   }, [menuItems]);
 
-  const onRefresh = useCallback(() => {
-    loadMenuItems({ availableOnly: false });
-  }, [loadMenuItems]);
+  const unavailableCount = menuItems.filter((i) => !i.isAvailable).length;
 
-  const handleQuickAdd = useCallback(
-    async (item: MenuItem) => {
-      if (!currentCheck) return;
-      try {
-        await addItem(currentCheck.id, {
-          menuItemId: item.id,
-          quantity: 1,
-        });
-      } catch {
-        // silently fail — detail screen can handle errors
+  useEffect(() => {
+    if (user) {
+      refreshMenus((user as any).storeId);
+    }
+  }, [user, refreshMenus]);
+
+  // Load full menu when selection changes (set by refreshMenus auto-select)
+  useEffect(() => {
+    if (selectedMenu) {
+      selectMenu(selectedMenu);
+    }
+  }, [selectedMenu?.id]);
+
+  // Refresh data when tab regains focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user && selectedMenu) {
+        refreshMenus((user as any).storeId);
       }
-    },
-    [currentCheck, addItem],
+    }, [user, selectedMenu?.id, refreshMenus])
   );
 
-  return (
-    <View style={tw`flex-1 bg-gray-50`}>
-      <View style={tw`px-4 pt-4 pb-1`}>
-        <Text style={[tw`text-lg mb-3`, typography.headingSemibold]}>
-          Menu
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshMenus((user as any)?.storeId);
+      if (selectedMenu) await selectMenu(selectedMenu);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshMenus, selectMenu, selectedMenu, user]);
+
+  const handleToggleAvailability = useCallback(
+    (item: MenuItem) => {
+      const action = item.isAvailable ? '86 (mark unavailable)' : 'Un-86 (mark available)';
+      Alert.alert(
+        action,
+        `"${item.name}" will be ${item.isAvailable ? 'removed from' : 'added back to'} the active menu.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm',
+            onPress: async () => {
+              try {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                await toggleAvailability(item.id);
+              } catch {
+                Alert.alert('Error', 'Failed to update availability');
+              }
+            },
+          },
+        ],
+      );
+    },
+    [toggleAvailability],
+  );
+
+  const renderHighlightedText = useCallback(
+    (text: string, field: string, itemId: number, style: any) => {
+      const matches = highlightMap.get(itemId);
+      const match = matches?.find((h) => h.field === field);
+      if (!match) return <Text style={style} numberOfLines={1}>{text}</Text>;
+      const segments = getHighlightSegments(text, match.indices);
+      return (
+        <Text style={style} numberOfLines={1}>
+          {segments.map((seg, i) =>
+            seg.highlighted ? (
+              <Text key={i} style={tw`text-blue-600 bg-blue-50`}>{seg.text}</Text>
+            ) : (
+              <Text key={i}>{seg.text}</Text>
+            ),
+          )}
         </Text>
-        <View
-          style={tw`flex-row bg-white border border-gray-200 rounded-xl px-3 items-center`}
+      );
+    },
+    [highlightMap],
+  );
+
+  const renderGridItem = useCallback(
+    (item: MenuItem, index: number) => {
+      const catName = getItemCategoryName(item);
+      const catColor = getCategoryColor(catName);
+
+      return (
+        <TouchableOpacity
+          key={`menu-${item.id}-${index}`}
+          style={[tw`p-2 ${!item.isAvailable ? 'opacity-40' : ''} ${productColumns}`]}
+          onPress={() => router.push(`/menu-item/${item.id}`)}
+          onLongPress={() => handleToggleAvailability(item)}
+          activeOpacity={0.7}
+        >
+          <View style={tw`bg-white rounded-xl p-3 border border-gray-100 overflow-hidden`}>
+            {item.imageUrl ? (
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={tw`w-full h-20 rounded-lg bg-gray-50 mb-2`}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={tw`flex-row items-start`}>
+                <View
+                  style={[
+                    tw`w-10 h-10 rounded-lg items-center justify-center mr-2.5`,
+                    { backgroundColor: `${catColor}15` },
+                  ]}
+                >
+                  <MaterialCommunityIcons name="food-variant" size={20} color={catColor} />
+                </View>
+                <View style={tw`flex-1`}>
+                  {renderHighlightedText(
+                    item.name,
+                    'name',
+                    item.id,
+                    [tw`text-gray-900`, typography.bodyMedium],
+                  )}
+                  {catName && (
+                    <Text style={[tw`text-gray-400 mt-0.5`, typography.small]} numberOfLines={1}>{catName}</Text>
+                  )}
+                </View>
+              </View>
+            )}
+            {item.imageUrl && (
+              <View>
+                {renderHighlightedText(
+                  item.name,
+                  'name',
+                  item.id,
+                  [tw`text-gray-900`, typography.bodyMedium],
+                )}
+              </View>
+            )}
+            {!item.isAvailable && (
+              <View style={tw`absolute top-2 right-2 bg-red-500 rounded-full px-2 py-0.5`}>
+                <Text style={[tw`text-white`, { fontSize: 10, fontFamily: 'Geist-Bold' }]}>86'd</Text>
+              </View>
+            )}
+            <View style={tw`flex-row items-center justify-between mt-2.5`}>
+              <Text variant="semibold" style={[tw`text-gray-900`, typography.bodySemibold]}>
+                R{item.price?.toFixed(2)}
+              </Text>
+              <View style={[tw`w-8 h-8 rounded-full items-center justify-center`, { backgroundColor: `${catColor}15` }]}>
+                <MaterialCommunityIcons name="chevron-right" size={18} color={catColor} />
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [productColumns, handleToggleAvailability, renderHighlightedText, router],
+  );
+
+  const renderListItem = useCallback(
+    (item: MenuItem, index: number) => {
+      const catName = getItemCategoryName(item);
+      const catColor = getCategoryColor(catName);
+
+      return (
+        <TouchableOpacity
+          key={`menu-list-${item.id}-${index}`}
+          style={[tw`px-4 py-3 border-b border-gray-50 flex-row items-center`, !item.isAvailable && tw`opacity-40`]}
+          onPress={() => router.push(`/menu-item/${item.id}`)}
+          onLongPress={() => handleToggleAvailability(item)}
+          activeOpacity={0.6}
+        >
+          {item.imageUrl ? (
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={tw`w-12 h-12 rounded-lg bg-gray-50 mr-3`}
+              resizeMode="cover"
+            />
+          ) : (
+            <View
+              style={[
+                tw`w-10 h-10 rounded-lg items-center justify-center mr-3`,
+                { backgroundColor: `${catColor}15` },
+              ]}
+            >
+              <MaterialCommunityIcons name="food-variant" size={20} color={catColor} />
+            </View>
+          )}
+          <View style={tw`flex-1 mr-3`}>
+            {renderHighlightedText(
+              item.name,
+              'name',
+              item.id,
+              [tw`text-gray-900`, typography.bodyMedium],
+            )}
+            {catName && (
+              <Text style={[tw`text-gray-400 mt-0.5`, typography.small]} numberOfLines={1}>{catName}</Text>
+            )}
+          </View>
+          {!item.isAvailable && (
+            <View style={tw`bg-red-500 rounded-full px-2 py-0.5 mr-3`}>
+              <Text style={[tw`text-white`, { fontSize: 10, fontFamily: 'Geist-Bold' }]}>86'd</Text>
+            </View>
+          )}
+          <Text variant="semibold" style={[tw`text-gray-900 mr-3`, typography.bodySemibold]}>
+            R{item.price?.toFixed(2)}
+          </Text>
+          <MaterialCommunityIcons name="chevron-right" size={18} color="#D1D5DB" />
+        </TouchableOpacity>
+      );
+    },
+    [handleToggleAvailability, renderHighlightedText, router],
+  );
+
+  const renderEmpty = () => {
+    if (isLoading) {
+      return (
+        <View style={tw`flex-1 justify-center items-center`}>
+          <ActivityIndicator size="large" color={colors.primary.main} />
+          <Text style={[tw`text-gray-500 mt-3`, typography.body]}>Loading menu...</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={tw`flex-1 justify-center items-center p-6`}>
+        <MaterialCommunityIcons name="food-off" size={48} color="#D1D5DB" />
+        <Text variant="semibold" style={[tw`text-gray-700 text-center mb-1 mt-3`, typography.headingSemibold]}>
+          No Items Found
+        </Text>
+        <Text style={[tw`text-gray-400 text-center mb-4`, typography.body]}>
+          {selectedCategory !== 'all'
+            ? `No items in "${selectedCategory}".`
+            : debouncedQuery
+              ? `No items matching "${debouncedQuery}".`
+              : 'No menu items available.'}
+        </Text>
+        {(selectedCategory !== 'all' || localSearch) && (
+          <TouchableOpacity
+            style={tw`bg-gray-100 rounded-xl py-3 px-5`}
+            onPress={() => { setSelectedCategory('all'); setLocalSearch(''); }}
+          >
+            <Text variant="medium" style={[tw`text-gray-600`, typography.bodyMedium]}>Clear Filters</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <View style={tw`flex-1 bg-white`}>
+      {/* Search Header */}
+      <View style={tw`flex-row items-center bg-white px-4 py-3 border-b border-gray-100`}>
+        <TouchableOpacity
+          style={tw`flex-1 flex-row items-center bg-gray-50 rounded-xl px-4 py-2`}
+          activeOpacity={0.7}
+          onPress={() => searchInputRef.current?.focus()}
         >
           <MaterialCommunityIcons name="magnify" size={20} color="#9CA3AF" />
           <TextInput
-            style={tw`flex-1 py-3 px-2 text-base`}
+            ref={searchInputRef}
+            style={[tw`flex-1 ml-2 text-gray-900 py-2`, typography.body]}
             placeholder="Search menu items..."
+            placeholderTextColor="#9CA3AF"
             value={localSearch}
             onChangeText={setLocalSearch}
-            returnKeyType="search"
           />
           {localSearch.length > 0 && (
-            <TouchableOpacity onPress={() => setLocalSearch('')}>
-              <MaterialCommunityIcons name="close" size={18} color="#9CA3AF" />
+            <TouchableOpacity onPress={() => setLocalSearch('')} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+              <MaterialCommunityIcons name="close" size={20} color="#9CA3AF" />
             </TouchableOpacity>
           )}
-        </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={tw`ml-3 p-2.5 rounded-lg ${viewMode === 'list' ? 'bg-blue-50' : 'bg-gray-50'}`}
+          onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+        >
+          <MaterialCommunityIcons
+            name={viewMode === 'grid' ? 'format-list-bulleted' : 'grid'}
+            size={20}
+            color={viewMode === 'list' ? colors.primary.main : '#6B7280'}
+          />
+        </TouchableOpacity>
       </View>
 
-      <CategoryTabs
-        categories={categories}
-        selected={selectedCategory}
-        onSelect={setSelectedCategory}
-      />
+      {/* Category Tabs */}
+      <View style={tw`h-14 bg-white border-b border-gray-100`}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`px-4`} contentContainerStyle={tw`h-14 items-center`}>
+          {categories.map((cat, idx) => (
+            <TouchableOpacity
+              key={`cat-${cat.id}-${idx}`}
+              style={tw`mr-2 px-4 py-2 rounded-full ${selectedCategory === cat.id ? 'bg-blue-600' : 'bg-gray-50'}`}
+              onPress={() => setSelectedCategory(cat.id)}
+            >
+              <View style={tw`flex-row items-center`}>
+                <MaterialCommunityIcons
+                  name={cat.icon as any}
+                  size={16}
+                  color={selectedCategory === cat.id ? '#fff' : '#9CA3AF'}
+                />
+                <Text style={[
+                  tw`ml-1.5 ${selectedCategory === cat.id ? 'text-white' : 'text-gray-600'}`,
+                  typography.captionSemibold,
+                ]}>
+                  {cat.name}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
-      {error && (
-        <View style={tw`bg-red-50 p-3 rounded-lg mb-2 mx-4`}>
-          <Text style={[tw`text-red-700 text-sm`, typography.body]}>
-            {error}
-          </Text>
+      {/* 86 count banner */}
+      {unavailableCount > 0 && (
+        <View style={tw`bg-red-50 px-4 py-2 flex-row items-center justify-between`}>
+          <View style={tw`flex-row items-center`}>
+            <MaterialCommunityIcons name="food-off" size={16} color="#DC2626" />
+            <Text style={[tw`text-red-700 ml-1.5`, typography.captionSemibold]}>
+              {unavailableCount} item{unavailableCount > 1 ? 's' : ''} 86'd
+            </Text>
+          </View>
+          <Text style={[tw`text-red-400`, typography.small]}>Long-press to toggle</Text>
         </View>
       )}
 
-      <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => {
-          const hl = highlightMap.get(item.id);
-          const nameHL = hl?.find((h) => h.field === 'name');
-          const catHL = hl?.find((h) => h.field === 'categoryName');
-          return (
-            <MenuItemCard
-              item={item}
-              onQuickAdd={currentCheck ? () => handleQuickAdd(item) : undefined}
-              highlights={
-                nameHL || catHL
-                  ? {
-                      name: nameHL ? getHighlightSegments(item.name, nameHL.indices) : undefined,
-                      category: catHL && item.categoryName ? getHighlightSegments(item.categoryName, catHL.indices) : undefined,
-                    }
-                  : undefined
-              }
-            />
-          );
-        }}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={tw`pb-8 pt-1`}
-        ListEmptyComponent={
-          !isLoading ? (
-            <View style={tw`items-center justify-center py-16`}>
-              <MaterialCommunityIcons
-                name="food-off"
-                size={48}
-                color="#9CA3AF"
-              />
-              <Text style={[tw`text-gray-400 mt-3`, typography.body]}>
-                No menu items found
-              </Text>
+      {/* Error */}
+      {error && (
+        <View style={tw`bg-red-50 p-3 mx-4 mt-2 rounded-lg`}>
+          <Text style={[tw`text-red-700`, typography.caption]}>{error}</Text>
+        </View>
+      )}
+
+      {/* Menu Content */}
+      {filteredItems.length === 0 ? (
+        renderEmpty()
+      ) : (
+        <ScrollView
+          style={tw`flex-1`}
+          contentContainerStyle={tw`pb-16`}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          {viewMode === 'grid' ? (
+            <View style={tw`flex-row flex-wrap px-2 pt-2`}>
+              {filteredItems.map((item, index) => renderGridItem(item, index))}
             </View>
           ) : (
-            <View style={tw`items-center py-16`}>
-              <ActivityIndicator size="large" color="#3B82F6" />
+            <View style={tw`pt-1`}>
+              {filteredItems.map((item, index) => renderListItem(item, index))}
             </View>
-          )
-        }
-      />
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }

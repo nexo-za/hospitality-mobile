@@ -53,6 +53,9 @@ export const HOSPITALITY_ENDPOINTS = {
   // MENU_APP
   MENU: {
     LIST: '/hospitality/menus',
+    DETAIL: (id: number) => `/hospitality/menus/${id}`,
+    CATEGORIES: (menuId: number) => `/hospitality/menus/${menuId}/categories`,
+    SCHEDULES: (menuId: number) => `/hospitality/menus/${menuId}/schedules`,
     ITEMS: '/hospitality/menus/items',
     ITEM: (id: number) => `/hospitality/menus/items/${id}`,
     AVAILABILITY: (id: number) => `/hospitality/menus/items/${id}/availability`,
@@ -155,6 +158,12 @@ export const HOSPITALITY_ENDPOINTS = {
   DASHBOARD: {
     SUMMARY: '/hospitality/dashboard/summary',
     LIVE_OPERATIONS: '/hospitality/dashboard/live-operations',
+    REVENUE_TRENDS: '/hospitality/dashboard/revenue-trends',
+    TOP_ITEMS: '/hospitality/dashboard/top-items',
+    RECENT_CHECKS: '/hospitality/dashboard/recent-checks',
+    ANALYTICS: '/hospitality/dashboard/analytics',
+    INVENTORY_ALERTS: '/hospitality/dashboard/inventory-alerts',
+    STAFF_PERFORMANCE: '/hospitality/dashboard/staff-performance',
   },
 
   // INVENTORY_APP

@@ -1,3 +1,6 @@
+import Constants from "expo-constants";
+import { Platform } from "react-native";
+
 /**
  * Application Configuration
  *
@@ -20,14 +23,21 @@ const isDevelopment = __DEV__;
 const DEFAULT_API_PORT = "3000";
 const DEFAULT_DEV_MACHINE_IP = "172.20.10.14";
 
-type DevApiTarget = "emulator" | "usb" | "lan";
+type DevApiTarget = "auto" | "emulator" | "usb" | "lan";
 
-const getEnv = (key: string): string | undefined => {
-  const value = process.env[key];
+const normalizeEnv = (value: string | undefined): string | undefined => {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
 };
+
+const ENV = {
+  apiUrl: normalizeEnv(process.env.EXPO_PUBLIC_API_URL),
+  useLocalDev: normalizeEnv(process.env.EXPO_PUBLIC_USE_LOCAL_DEV),
+  apiTarget: normalizeEnv(process.env.EXPO_PUBLIC_API_TARGET),
+  apiPort: normalizeEnv(process.env.EXPO_PUBLIC_API_PORT),
+  devMachineIp: normalizeEnv(process.env.EXPO_PUBLIC_DEV_MACHINE_IP),
+} as const;
 
 const toBoolean = (value: string | undefined, fallback: boolean): boolean => {
   if (!value) return fallback;
@@ -43,22 +53,37 @@ const normalizeApiUrl = (url: string): string => {
 };
 
 const getDevTarget = (): DevApiTarget => {
-  const envTarget = getEnv("EXPO_PUBLIC_API_TARGET")?.toLowerCase();
-  if (envTarget === "usb" || envTarget === "lan" || envTarget === "emulator") {
+  const envTarget = ENV.apiTarget?.toLowerCase();
+  if (
+    envTarget === "auto" ||
+    envTarget === "usb" ||
+    envTarget === "lan" ||
+    envTarget === "emulator"
+  ) {
     return envTarget;
   }
-  return "emulator";
+  return "auto";
 };
 
 const buildDevApiUrl = (): string => {
-  const port = getEnv("EXPO_PUBLIC_API_PORT") || DEFAULT_API_PORT;
-  const target = getDevTarget();
+  const port = ENV.apiPort || DEFAULT_API_PORT;
+  const configuredTarget = getDevTarget();
+
+  const target: Exclude<DevApiTarget, "auto"> =
+    configuredTarget === "auto"
+      ? Platform.OS === "android"
+        ? Constants.isDevice
+          ? "usb"
+          : "emulator"
+        : "lan"
+      : configuredTarget;
 
   if (target === "usb") return `http://127.0.0.1:${port}/api`;
   if (target === "lan") {
-    const ip = getEnv("EXPO_PUBLIC_DEV_MACHINE_IP") || DEFAULT_DEV_MACHINE_IP;
+    const ip = ENV.devMachineIp || DEFAULT_DEV_MACHINE_IP;
     return `http://${ip}:${port}/api`;
   }
+  if (Platform.OS === "ios") return `http://127.0.0.1:${port}/api`;
   return `http://10.0.2.2:${port}/api`;
 };
 
@@ -70,12 +95,12 @@ export const API_URLS = {
 } as const;
 
 const USE_LOCAL_DEV = toBoolean(
-  getEnv("EXPO_PUBLIC_USE_LOCAL_DEV"),
+  ENV.useLocalDev,
   isDevelopment
 );
 
 const resolvedApiUrl = (() => {
-  const explicitUrl = getEnv("EXPO_PUBLIC_API_URL");
+  const explicitUrl = ENV.apiUrl;
   if (explicitUrl) return explicitUrl;
   if (!USE_LOCAL_DEV) return API_URLS.PRODUCTION;
   return buildDevApiUrl();
@@ -87,7 +112,6 @@ const API_CONFIG: ApiConfig = {
 };
 
 const getPlatform = (): "ios" | "android" | "web" => {
-  const { Platform } = require("react-native");
   return Platform.OS as "ios" | "android" | "web";
 };
 

@@ -17,6 +17,7 @@ interface SwipeableCartItemProps {
   onRepeatPress: (item: CheckItem) => void;
   onMorePress: (item: CheckItem) => void;
   onRemove: (itemId: number) => void;
+  onEditNote?: (item: CheckItem) => void;
 }
 
 const ACTION_WIDTH = 72;
@@ -29,6 +30,7 @@ export function SwipeableCartItem({
   onRepeatPress,
   onMorePress,
   onRemove,
+  onEditNote,
 }: SwipeableCartItemProps) {
   const swipeRef = useRef<Swipeable>(null);
 
@@ -119,66 +121,86 @@ export function SwipeableCartItem({
       overshootLeft={false}
       overshootRight={false}
     >
-      <View style={tw`bg-white px-3 py-2.5 border-b border-gray-50`}>
+      <View style={tw`bg-white px-4 py-3 border-b border-gray-50`}>
         <View style={tw`flex-row items-center`}>
           {statusDotColor && (
-            <View style={[tw`w-2 h-2 rounded-full mr-2`, { backgroundColor: statusDotColor }]} />
+            <View style={[tw`w-2.5 h-2.5 rounded-full mr-2`, { backgroundColor: statusDotColor }]} />
           )}
 
           <View style={tw`flex-1 mr-2`}>
             <View style={tw`flex-row items-center`}>
-              <Text variant="medium" style={[tw`text-gray-900 flex-1`, typography.caption]} numberOfLines={1}>
+              <Text variant="medium" style={[tw`text-gray-900 flex-1`, typography.bodyMedium]} numberOfLines={1}>
                 {item.menuItemName}
               </Text>
               {statusBadge && (
-                <View style={tw`${statusBadge.bg} px-1.5 py-0.5 rounded ml-1.5`}>
-                  <Text style={tw`${statusBadge.text} text-[9px] font-bold`}>{statusBadge.label}</Text>
+                <View style={tw`${statusBadge.bg} px-2 py-0.5 rounded ml-2`}>
+                  <Text style={[tw`${statusBadge.text}`, { fontSize: 11, fontFamily: 'Geist-Bold' }]}>{statusBadge.label}</Text>
                 </View>
               )}
             </View>
             {item.modifiers && item.modifiers.length > 0 && (
-              <Text style={tw`text-gray-400 text-[11px]`} numberOfLines={1}>
+              <Text style={[tw`text-gray-400`, typography.small]} numberOfLines={1}>
                 + {item.modifiers.map((m) => m.modifierName).join(', ')}
               </Text>
             )}
-            {item.specialRequests && (
-              <Text style={tw`text-orange-500 text-[11px]`} numberOfLines={1}>
-                {item.specialRequests}
-              </Text>
-            )}
+            {item.specialRequests ? (
+              <TouchableOpacity
+                onPress={() => isOpen && isUnfired && onEditNote?.(item)}
+                disabled={!isOpen || !isUnfired}
+                activeOpacity={0.6}
+                style={tw`flex-row items-center mt-0.5`}
+              >
+                <MaterialCommunityIcons name="note-edit-outline" size={12} color="#EA580C" />
+                <Text style={[tw`text-orange-500 ml-1 flex-1`, typography.small]} numberOfLines={1}>
+                  {item.specialRequests}
+                </Text>
+                {isOpen && isUnfired && (
+                  <MaterialCommunityIcons name="pencil" size={10} color="#FB923C" style={tw`ml-1`} />
+                )}
+              </TouchableOpacity>
+            ) : isOpen && isUnfired && onEditNote ? (
+              <TouchableOpacity
+                onPress={() => onEditNote(item)}
+                activeOpacity={0.6}
+                style={tw`flex-row items-center mt-0.5`}
+              >
+                <MaterialCommunityIcons name="note-plus-outline" size={12} color="#9CA3AF" />
+                <Text style={[tw`text-gray-400 ml-1`, typography.small]}>Add note</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {isOpen && isUnfired ? (
             <View style={tw`flex-row items-center bg-gray-50 rounded-lg overflow-hidden`}>
               <TouchableOpacity
                 onPress={handleDecrement}
-                style={tw`w-8 h-8 items-center justify-center`}
+                style={tw`w-9 h-9 items-center justify-center`}
                 hitSlop={{ top: 6, right: 2, bottom: 6, left: 6 }}
               >
                 <MaterialCommunityIcons
                   name={item.quantity <= 1 ? 'delete-outline' : 'minus'}
-                  size={14}
+                  size={16}
                   color={item.quantity <= 1 ? colors.status.error : '#6B7280'}
                 />
               </TouchableOpacity>
-              <Text variant="semibold" style={tw`text-gray-900 min-w-[22px] text-center text-sm`}>
+              <Text variant="semibold" style={[tw`text-gray-900 min-w-[24px] text-center`, typography.bodySemibold]}>
                 {item.quantity}
               </Text>
               <TouchableOpacity
                 onPress={handleIncrement}
-                style={tw`w-8 h-8 items-center justify-center`}
+                style={tw`w-9 h-9 items-center justify-center`}
                 hitSlop={{ top: 6, left: 2, bottom: 6, right: 6 }}
               >
-                <MaterialCommunityIcons name="plus" size={14} color={colors.primary.main} />
+                <MaterialCommunityIcons name="plus" size={16} color={colors.primary.main} />
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={tw`px-2 py-1 bg-gray-100 rounded`}>
-              <Text style={tw`text-gray-700 text-xs`}>x{item.quantity}</Text>
+            <View style={tw`px-2.5 py-1 bg-gray-100 rounded`}>
+              <Text style={[tw`text-gray-700`, typography.caption]}>x{item.quantity}</Text>
             </View>
           )}
 
-          <Text variant="medium" style={tw`text-gray-900 ml-3 min-w-[56px] text-right text-sm`}>
+          <Text variant="medium" style={[tw`text-gray-900 ml-3 min-w-[64px] text-right`, typography.bodySemibold]}>
             R{(item.totalPrice ?? 0).toFixed(2)}
           </Text>
         </View>
@@ -221,7 +243,7 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 2,
     fontFamily: 'Geist-Medium',
   },

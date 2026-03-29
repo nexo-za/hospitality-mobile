@@ -49,4 +49,8 @@ export const typography = StyleSheet.create({
     fontFamily: "Geist-Medium",
     fontSize: 12,
   },
+  headingSemibold: {
+    fontFamily: "Geist-SemiBold",
+    fontSize: 18,
+  },
 });

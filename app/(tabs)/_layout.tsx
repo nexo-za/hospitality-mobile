@@ -22,38 +22,34 @@ export default function TabLayout() {
 
   return (
     <View style={tw`flex-1`}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <SafeAreaView style={tw`bg-white border-b border-gray-100`}>
-        <View style={tw`flex-row items-center px-4 py-2`}>
-          <View style={tw`w-28`}>
-            <Image
-              source={require('@/assets/images/nexoslo.png')}
-              style={tw`w-24 h-10`}
-              resizeMode="contain"
-            />
-          </View>
+      <StatusBar barStyle="light-content" backgroundColor="#548AF7" />
+      <SafeAreaView style={{ backgroundColor: '#548AF7' }}>
+        <View style={tw`flex-row items-center px-4 pt-1.5`}>
+          <Image
+            source={require('@/assets/images/nexoslo.png')}
+            style={{ width: 72, height: 28, tintColor: '#ffffff' }}
+            resizeMode="contain"
+          />
+
           <View style={tw`flex-1`} />
 
           {headerStore ? (
             <View
               pointerEvents="none"
-              style={tw`absolute left-0 right-0 items-center z-10`}
+              style={tw`absolute left-0 right-0 items-center`}
             >
-              <View
-                style={tw`bg-blue-500 rounded-full px-3 py-1 items-center justify-center`}
+              <GeistText
+                style={[{ color: 'rgba(255,255,255,0.85)' }, typography.captionSemibold]}
+                numberOfLines={1}
               >
-                <GeistText
-                  style={[tw`text-white text-center`, typography.captionSemibold]}
-                  numberOfLines={1}
-                >
-                  {headerStore}
-                </GeistText>
-              </View>
+                {headerStore}
+              </GeistText>
             </View>
           ) : null}
-          <View style={tw`w-28 flex-row items-center justify-end gap-2`}>
-            <NotificationBell />
-            <StaffHeader showStoreInfo={false} compact={true} />
+
+          <View style={tw`flex-row items-center gap-1`}>
+            <NotificationBell color="#ffffff" />
+            <StaffHeader showStoreInfo={false} compact={true} variant="onDark" />
           </View>
         </View>
       </SafeAreaView>

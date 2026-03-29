@@ -32,6 +32,7 @@ interface StaffSelectorProps {
   onStaffChange?: (staff: StaffSession) => void;
   showCurrentStaff?: boolean;
   compact?: boolean;
+  variant?: 'default' | 'onDark';
 }
 
 const StaffSelector = ({
@@ -39,7 +40,9 @@ const StaffSelector = ({
   onStaffChange,
   showCurrentStaff = true,
   compact = false,
+  variant = 'default',
 }: StaffSelectorProps) => {
+  const onDark = variant === 'onDark';
   const {
     activeStaff,
     currentStaff,
@@ -573,22 +576,33 @@ const StaffSelector = ({
     if (!currentStaff) {
       return (
         <TouchableOpacity
-          style={tw`flex-row items-center ${compact ? "px-2 py-1" : "px-3 py-2"} bg-white rounded-lg border border-gray-200 max-w-[160px]`}
+          style={[
+            tw`flex-row items-center ${compact ? "px-2 py-1" : "px-3 py-2"} rounded-lg max-w-[160px]`,
+            onDark
+              ? { backgroundColor: 'rgba(255,255,255,0.15)' }
+              : tw`bg-white border border-gray-200`,
+          ]}
           onPress={() => setModalVisible(true)}
         >
           <View
-            style={tw`w-7 h-7 rounded-full bg-gray-100 items-center justify-center mr-1.5`}
+            style={[
+              tw`w-6 h-6 rounded-full items-center justify-center mr-1.5`,
+              onDark
+                ? { backgroundColor: 'rgba(255,255,255,0.2)' }
+                : tw`bg-gray-100`,
+            ]}
           >
             <MaterialCommunityIcons
               name="account-question"
-              size={compact ? 14 : 16}
-              color="#9ca3af"
+              size={compact ? 13 : 16}
+              color={onDark ? '#ffffff' : '#9ca3af'}
             />
           </View>
 
           <GeistText
             style={[
-              tw`text-gray-500 ${compact ? "text-xs max-w-[120px]" : ""}`,
+              tw`${compact ? "text-xs max-w-[120px]" : ""}`,
+              { color: onDark ? '#ffffff' : '#6b7280' },
               compact ? {} : typography.body,
             ]}
             numberOfLines={1}
@@ -600,8 +614,8 @@ const StaffSelector = ({
           <MaterialCommunityIcons
             name="chevron-down"
             size={compact ? 12 : 16}
-            color="#9ca3af"
-            style={tw`ml-1`}
+            color={onDark ? 'rgba(255,255,255,0.7)' : '#9ca3af'}
+            style={tw`ml-0.5`}
           />
         </TouchableOpacity>
       );
@@ -609,22 +623,33 @@ const StaffSelector = ({
 
     return (
       <TouchableOpacity
-        style={tw`flex-row items-center ${compact ? "px-2 py-1" : "px-3 py-2"} bg-white rounded-lg border border-gray-200 max-w-[180px]`}
+        style={[
+          tw`flex-row items-center ${compact ? "px-2 py-1" : "px-3 py-2"} rounded-lg max-w-[180px]`,
+          onDark
+            ? { backgroundColor: 'rgba(255,255,255,0.15)' }
+            : tw`bg-white border border-gray-200`,
+        ]}
         onPress={() => setModalVisible(true)}
       >
         <View
-          style={tw`w-7 h-7 rounded-full bg-blue-50 items-center justify-center mr-1.5`}
+          style={[
+            tw`w-6 h-6 rounded-full items-center justify-center mr-1.5`,
+            onDark
+              ? { backgroundColor: 'rgba(255,255,255,0.2)' }
+              : tw`bg-blue-50`,
+          ]}
         >
           <MaterialCommunityIcons
             name="account"
-            size={compact ? 14 : 16}
-            color="#3b82f6"
+            size={compact ? 13 : 16}
+            color={onDark ? '#ffffff' : '#3b82f6'}
           />
         </View>
 
         <GeistText
           style={[
-            tw`text-gray-600 ${compact ? "text-xs max-w-[120px]" : ""}`,
+            tw`${compact ? "text-xs max-w-[120px]" : ""}`,
+            { color: onDark ? '#ffffff' : '#4b5563' },
             compact ? {} : typography.body,
           ]}
           numberOfLines={1}
@@ -632,13 +657,12 @@ const StaffSelector = ({
         >
           {currentStaff.displayName}
         </GeistText>
-        {/* Hide store name in header button; only show inside popup list */}
 
         <MaterialCommunityIcons
           name="chevron-down"
           size={compact ? 12 : 16}
-          color="#9ca3af"
-          style={tw`ml-1`}
+          color={onDark ? 'rgba(255,255,255,0.7)' : '#9ca3af'}
+          style={tw`ml-0.5`}
         />
       </TouchableOpacity>
     );

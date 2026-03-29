@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import Fuse from 'fuse.js';
 import type { MenuItem } from '@/types/hospitality';
+import { getItemCategoryName } from '@/types/hospitality';
 
 export interface MatchHighlight {
   field: string;
@@ -15,10 +16,12 @@ export interface SearchResult {
 
 const FUSE_OPTIONS: Fuse.IFuseOptions<MenuItem> = {
   keys: [
-    { name: 'name', weight: 0.5 },
-    { name: 'tags', weight: 0.2 },
-    { name: 'categoryName', weight: 0.2 },
+    { name: 'name', weight: 0.4 },
+    { name: 'displayName', weight: 0.15 },
+    { name: 'tags', weight: 0.15 },
+    { name: 'category.name', weight: 0.15 },
     { name: 'description', weight: 0.1 },
+    { name: 'sku', weight: 0.05 },
   ],
   threshold: 0.35,
   distance: 120,
@@ -46,8 +49,8 @@ export function useMenuSearch(
   const categoryFiltered = useMemo(() => {
     if (category === 'all' || category === 'All') return items;
     return items.filter((i) => {
-      const cat = i.categoryName || (i as any).category?.name || (i as any).category;
-      return typeof cat === 'string' && cat.toLowerCase() === category.toLowerCase();
+      const cat = getItemCategoryName(i);
+      return cat != null && cat.toLowerCase() === category.toLowerCase();
     });
   }, [items, category]);
 
@@ -93,7 +96,6 @@ export function useMenuSearch(
 
 /**
  * Split text into segments for highlighted rendering.
- * Each segment is { text, highlighted }.
  */
 export function getHighlightSegments(
   text: string,

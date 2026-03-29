@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 import guestsService from '@/api/services/guestsService';
 import type {
@@ -37,6 +38,7 @@ export const GuestsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedGuestsRef = useRef(false);
 
   const loadGuests = useCallback(
     async (params?: {
@@ -45,16 +47,24 @@ export const GuestsProvider: React.FC<{ children: React.ReactNode }> = ({
       isVIP?: boolean;
       search?: string;
     }) => {
-      setIsLoading(true);
+      const isInitialLoad = !hasLoadedGuestsRef.current;
+      if (isInitialLoad) {
+        setIsLoading(true);
+      }
       setError(null);
       try {
         const res = await guestsService.list(params);
         setGuests(res.data);
         setPagination(res.pagination);
+        hasLoadedGuestsRef.current = true;
       } catch (e: any) {
-        setError(e.message);
+        if (isInitialLoad) {
+          setError(e.message);
+        }
       } finally {
-        setIsLoading(false);
+        if (isInitialLoad) {
+          setIsLoading(false);
+        }
       }
     },
     []

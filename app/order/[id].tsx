@@ -16,6 +16,7 @@ import { useOrder } from '@/contexts/OrderContext';
 import { useMenu } from '@/contexts/MenuContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ItemActionSheet } from '@/components/order/ItemActionSheet';
+import { ItemNotesSheet } from '@/components/order/ItemNotesSheet';
 import { CheckActionSheet } from '@/components/order/CheckActionSheet';
 import { TransferCheckSheet } from '@/components/table/TransferCheckSheet';
 import HospitalityPaymentSheet from '@/components/payment/HospitalityPaymentSheet';
@@ -24,8 +25,10 @@ import { MenuBrowser } from '@/components/order/MenuBrowser';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import { useMenuSearch, getHighlightSegments } from '@/hooks/useMenuSearch';
 import billingService from '@/api/services/billingService';
+import ordersService from '@/api/services/ordersService';
 import { useTables } from '@/contexts/TablesContext';
 import type { CheckItem, MenuItem } from '@/types/hospitality';
+import { getItemCategoryName } from '@/types/hospitality';
 
 export default function OrderDetailScreen() {
   const { id, pay } = useLocalSearchParams<{ id: string; pay?: string }>();
@@ -50,7 +53,9 @@ export default function OrderDetailScreen() {
   } = useMenu();
 
   const {
+    activeChecks,
     currentCheck,
+    setCurrentCheck,
     loadCheck,
     fireItems,
     voidCheck,
@@ -64,9 +69,10 @@ export default function OrderDetailScreen() {
 
   const { tables, refreshTables } = useTables();
 
-  const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<CheckItem | null>(null);
   const [showItemSheet, setShowItemSheet] = useState(false);
+  const [showNotesSheet, setShowNotesSheet] = useState(false);
+  const [notesItem, setNotesItem] = useState<CheckItem | null>(null);
   const [showCheckSheet, setShowCheckSheet] = useState(false);
   const [showTransferSheet, setShowTransferSheet] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -83,37 +89,37 @@ export default function OrderDetailScreen() {
   } = useMenuSearch(menuItems, selectedCategory);
 
   const reloadMenu = useCallback(() => {
-    if (user) {
+    if (!user) return;
+    if (menuItems.length === 0) {
       refreshMenus((user as any).storeId);
       loadMenuItems({ availableOnly: false });
     }
-  }, [user, refreshMenus, loadMenuItems]);
+  }, [user, menuItems.length, refreshMenus, loadMenuItems]);
 
   useEffect(() => {
-    load();
+    const numericId = Number(id);
+
+    const cached = activeChecks.find((c) => c.id === numericId);
+    if (cached && (!currentCheck || currentCheck.id !== numericId)) {
+      setCurrentCheck(cached);
+    }
+
+    loadCheck(numericId).catch(() => {
+      if (!cached) Alert.alert('Error', 'Failed to load order');
+    });
+
     reloadMenu();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      await loadCheck(Number(id));
-    } catch {
-      Alert.alert('Error', 'Failed to load order');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const payHandledRef = useRef(false);
 
   useEffect(() => {
-    if (pay === '1' && currentCheck && !loading && !payHandledRef.current) {
+    if (pay === '1' && currentCheck && !payHandledRef.current) {
       payHandledRef.current = true;
       setShowPaymentModal(true);
     }
-  }, [pay, currentCheck, loading]);
+  }, [pay, currentCheck]);
 
   useRealtimeUpdates({
     storeId: (user as any)?.storeId,
@@ -135,9 +141,9 @@ export default function OrderDetailScreen() {
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    menuItems.forEach((item: any) => {
-      const catName = item.categoryName || item.category?.name || item.category;
-      if (catName && typeof catName === 'string') cats.add(catName);
+    menuItems.forEach((item) => {
+      const catName = getItemCategoryName(item);
+      if (catName) cats.add(catName);
     });
     return [
       { id: 'all', name: 'All', icon: 'grid' as const },
@@ -292,6 +298,31 @@ export default function OrderDetailScreen() {
     }
   };
 
+  const handleEditNote = useCallback((item: CheckItem) => {
+    setNotesItem(item);
+    setShowNotesSheet(true);
+  }, []);
+
+  const handleSaveNote = useCallback(
+    async (itemId: number, specialRequests: string) => {
+      if (!currentCheck) return;
+      const previousCheck = currentCheck;
+
+      const updatedItems = currentCheck.items.map((item) =>
+        item.id === itemId ? { ...item, specialRequests: specialRequests || undefined } : item,
+      );
+      setCurrentCheck({ ...currentCheck, items: updatedItems });
+
+      try {
+        await ordersService.updateItem(itemId, { specialRequests });
+      } catch (e: any) {
+        setCurrentCheck(previousCheck);
+        Alert.alert('Error', e.message || 'Could not update special instructions');
+      }
+    },
+    [currentCheck, setCurrentCheck],
+  );
+
   // ── Check-level actions ───────────────────────────────────────────
 
   const handleCheckDiscount = async (
@@ -374,19 +405,11 @@ export default function OrderDetailScreen() {
 
   // ── Derived state ─────────────────────────────────────────────────
 
-  if (loading) {
+  if (!currentCheck) {
     return (
       <View style={tw`flex-1 items-center justify-center bg-white`}>
         <ActivityIndicator size="large" color="#3B82F6" />
       </View>
-    );
-  }
-
-  if (!currentCheck) {
-    return (
-      <SafeAreaView style={tw`flex-1 bg-white`}>
-        <Text style={[tw`text-center mt-10 text-gray-500`, typography.body]}>Order not found</Text>
-      </SafeAreaView>
     );
   }
 
@@ -427,8 +450,8 @@ export default function OrderDetailScreen() {
 
           {/* RIGHT: Cart Panel */}
           <View style={[tw`bg-white border-l border-gray-200`, { width: Math.max(width * 0.30, 300) }]}>
-            <View style={tw`px-3 py-2 border-b border-gray-100`}>
-              <Text variant="bold" style={tw`text-gray-900 text-base`}>Cart</Text>
+            <View style={tw`px-4 py-3 border-b border-gray-100`}>
+              <Text variant="bold" style={[tw`text-gray-900`, typography.h3]}>Cart</Text>
             </View>
             <CartPanel
               check={check}
@@ -447,6 +470,7 @@ export default function OrderDetailScreen() {
                 setShowItemSheet(true);
               }}
               onRemoveItem={handleRemoveItem}
+              onEditNote={handleEditNote}
               onFire={handleFire}
               onPayment={() => activeItems.length > 0 && setShowPaymentModal(true)}
             />
@@ -467,6 +491,16 @@ export default function OrderDetailScreen() {
           onUpdateSeat={handleUpdateSeat}
           onUpdateCourse={handleUpdateCourse}
           onMarkServed={handleMarkServed}
+          onEditNote={handleEditNote}
+        />
+        <ItemNotesSheet
+          visible={showNotesSheet}
+          item={notesItem}
+          onClose={() => {
+            setShowNotesSheet(false);
+            setNotesItem(null);
+          }}
+          onSave={handleSaveNote}
         />
         <CheckActionSheet
           visible={showCheckSheet}
@@ -494,11 +528,11 @@ export default function OrderDetailScreen() {
           checkId={check.id}
           onClose={() => {
             setShowPaymentModal(false);
-            load();
+            loadCheck(check.id).catch(() => undefined);
           }}
           onComplete={() => {
             setShowPaymentModal(false);
-            load();
+            loadCheck(check.id).catch(() => undefined);
             safeGoBack();
           }}
         />
